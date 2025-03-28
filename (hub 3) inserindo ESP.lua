@@ -1,6 +1,6 @@
 -- Codigo do ESP
 local Players = game:GetService("Players")
-local espColor = Color3.fromRGB(255, 0, 0)  -- Cor padrão (vermelho)
+local espColor = Color3.fromRGB(255, 0, 0)  
 
 local function addESP(player)
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -8,9 +8,9 @@ local function addESP(player)
         
         local highlight = Instance.new("Highlight")
         highlight.Name = "ESP_Highlight"
-        highlight.FillColor = espColor  -- Aplica a cor escolhida
+        highlight.FillColor = espColor  
         highlight.FillTransparency = 0.5
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)  -- Borda branca
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)  
         highlight.OutlineTransparency = 0
         highlight.Adornee = player.Character
         highlight.Parent = player.Character
@@ -52,7 +52,7 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 
 local flying = false
-local flySpeed = 50 -- Velocidade inicial
+local flySpeed = 50 
 local flyDirection = Vector3.new(0, 0, 0)
 local bodyVelocity
 
@@ -100,9 +100,9 @@ end)
 
 UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.W then
-        flyDirection = flyDirection - Vector3.new(0, 0, -1)
-    elseif input.KeyCode == Enum.KeyCode.S then
         flyDirection = flyDirection - Vector3.new(0, 0, 1)
+    elseif input.KeyCode == Enum.KeyCode.S then
+        flyDirection = flyDirection - Vector3.new(0, 0, -1)
     elseif input.KeyCode == Enum.KeyCode.A then
         flyDirection = flyDirection - Vector3.new(-1, 0, 0)
     elseif input.KeyCode == Enum.KeyCode.D then
@@ -114,8 +114,88 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
+-- Codigo do Noclip
+local RunService = game:GetService("RunService")
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local noclipActive = false
 
+local function toggleNoclip(state)
+    noclipActive = state
+    if Character then
+        for _, part in ipairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not noclipActive
+            end
+        end
+    end
+end
 
+RunService.Stepped:Connect(function()
+    if noclipActive and Character then
+        for _, part in ipairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    else
+        
+        if Character then
+            for _, part in ipairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end)
+
+-- Codigo do Ctrl TP
+local Mouse = LocalPlayer:GetMouse()
+
+local function teleportToPosition(position)
+    if Character and HumanoidRootPart then
+        HumanoidRootPart.CFrame = CFrame.new(position)
+    end
+end
+
+Mouse.Button1Down:Connect(function()
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if Mouse.Hit then
+            teleportToPosition(Mouse.Hit.Position)
+        end
+    end
+end)
+
+-- Teleportar para um player
+local function teleportToPlayer(playerName)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Name == playerName and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+            break
+        end
+    end
+end
+
+local function updateDropdownOptions()
+    local playerNames = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then  
+            table.insert(playerNames, player.Name)
+        end
+    end
+    PlayerTeleport:UpdateOptions(playerNames)
+end
+
+Players.PlayerAdded:Connect(function()
+    updateDropdownOptions()
+end)
+
+Players.PlayerRemoving:Connect(function()
+    updateDropdownOptions()
+end)
+
+-- Menu
 local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/7yhx/kwargs_Ui_Library/main/source.lua"))()
 
 local UI = Lib:Create{
@@ -139,11 +219,21 @@ local MatarTodos = JogadorDivider:Button{
     end
 }
 
+local ctrlTeleportActive = false
+
+local CtrlTPToggle = JogadorDivider:Button{
+    Name = "Ctrl Teleporte",
+    Description = "Você pode se teletransportar ao segurar o CTRL e o botão esquerdo do mouse.",
+    Callback = function(State)
+        ctrlTeleportActive = State
+    end
+}
+
 local PlayerTeleport = JogadorDivider:Dropdown{
     Name = "Teleporte para um player",
-    Options = {"Player1", "Player2", "Player3", "Player4", "Player5"},
+    Options = {}, 
     Callback = function(Value)
-        print(Value)
+        teleportToPlayer(Value)
     end
 }
 
@@ -170,6 +260,21 @@ JogadorDivider:Box{
     end
 }
 
+local NoclipToggle = JogadorDivider:Toggle{
+    Name = "Noclip",
+    Description = "Que tal atravessar parede?",
+    Callback = function(State)
+        toggleNoclip(State)
+    end
+}
+
+Mouse.Button1Down:Connect(function()
+    if ctrlTeleportActive and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if Mouse.Hit then
+            teleportToPosition(Mouse.Hit.Position)
+        end
+    end
+end)
 
 JogadorDivider:Box{
     Name = "Velocidade",
@@ -206,10 +311,9 @@ local Esp = VisualDivider:Toggle{
 
 VisualDivider:ColorPicker{
     Name = "Cor do ESP",
-    Default = Color3.fromRGB(255, 0, 0),  -- Cor inicial (vermelho)
+    Default = Color3.fromRGB(255, 0, 0),  
     Callback = function(Value)
-        espColor = Value  -- Atualiza a cor do ESP
-        -- Atualiza a cor de todos os ESPs já criados
+        espColor = Value   
         for _, player in ipairs(Players:GetPlayers()) do
             if player.Character and player.Character:FindFirstChild("ESP_Highlight") then
                 player.Character:FindFirstChild("ESP_Highlight").FillColor = espColor
